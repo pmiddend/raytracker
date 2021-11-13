@@ -22,6 +22,7 @@ import Data.Aeson(FromJSON, ToJSON)
 import GHC.Generics(Generic)
 import Network.Wai(Application)
 import Network.Wai.Handler.Warp(run)
+import Network.Wai.Middleware.Cors(simpleCors)
 
 import Database.SQLite.Simple
 import Database.SQLite.Simple.Ok(Ok(..))
@@ -106,7 +107,7 @@ timelineAPI :: Proxy TimelineAPI
 timelineAPI = Proxy
 
 app :: FilePath -> Application
-app dbPath = serve timelineAPI (server dbPath)
+app dbPath = simpleCors $ serve timelineAPI (server dbPath)
 
 data CLI = CLI {
     port :: Int

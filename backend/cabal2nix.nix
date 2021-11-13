@@ -1,5 +1,5 @@
 { mkDerivation, aeson, base, lib, optparse-applicative, servant
-, servant-server, sqlite-simple, text, time, wai, warp
+, servant-server, sqlite-simple, text, time, wai, wai-cors, warp
 }:
 mkDerivation {
   pname = "raytracker-backend";
@@ -9,7 +9,7 @@ mkDerivation {
   isExecutable = true;
   executableHaskellDepends = [
     aeson base optparse-applicative servant servant-server
-    sqlite-simple text time wai warp
+    sqlite-simple text time wai wai-cors warp
   ];
   license = "unknown";
   hydraPlatforms = lib.platforms.none;
