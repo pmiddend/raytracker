@@ -13,6 +13,8 @@ import Data.Either (Either)
 import Data.Function ((>>>))
 import Data.Functor ((<$>))
 import Data.Maybe (Maybe(..))
+import Data.Semigroup ((<>))
+import Data.Show (show)
 import Effect.Aff (Aff)
 import Raytracker.Item (Item)
 
@@ -22,7 +24,12 @@ retrieveItems = do
   response <- (lmap AX.printError) <$> AX.get json "/timeline"
   pure (response >>= (_.body >>> decodeJson >>> lmap printJsonDecodeError))
   
-addOrEdit :: Item -> Aff (Either String (Array Item))
-addOrEdit i = do
+addOrEditItem :: Item -> Aff (Either String (Array Item))
+addOrEditItem i = do
   response <- (lmap AX.printError) <$> AX.post json "/timeline" (Just (Json (encodeJson i)))
+  pure (response >>= (_.body >>> decodeJson >>> lmap printJsonDecodeError))
+
+deleteItem :: Int -> Aff (Either String (Array Item))
+deleteItem itemId = do
+  response <- (lmap AX.printError) <$> AX.delete json ("/timeline/" <> show itemId)
   pure (response >>= (_.body >>> decodeJson >>> lmap printJsonDecodeError))

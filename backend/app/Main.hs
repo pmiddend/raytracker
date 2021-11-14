@@ -46,11 +46,18 @@ listItems :: SqliteURL -> IO [DBItem]
 listItems sqliteUrl = bracket (open sqliteUrl) close (\conn -> query_ conn "SELECT id, itemType, title, note, start, end, abandoned from Items" :: IO [DBItem])
 
 insertItem :: forall a.SqliteURL -> Item a -> IO ()
-insertItem sqliteUrl (Item _itemId itemType itemTitle itemNote itemStart _itemEnd _itemAbandoned) =
+insertItem sqliteUrl (Item _itemId itemType itemTitle itemNote itemStart itemEnd itemAbandoned) =
   bracket
     (open sqliteUrl)
     close
-    (\conn -> void (execute conn "INSERT INTO Items (itemType, title, note, start, abandoned) VALUES (?, ?, ?, ?, 0)" (itemType, itemTitle, itemNote, itemStart)))
+    (\conn -> void (execute conn "INSERT INTO Items (itemType, title, note, start, abandoned, end) VALUES (?, ?, ?, ?, ?, ?)" (itemType, itemTitle, itemNote, itemStart, itemAbandoned, itemEnd)))
+
+deleteItem :: forall a. SqliteURL -> Int -> IO ()
+deleteItem sqliteUrl itemId =
+  bracket
+    (open sqliteUrl)
+    close
+    (\conn -> void (execute conn "DELETE FROM Items WHERE id = ?" (Only itemId)))
 
 updateItem :: forall a.SqliteURL -> Item Int -> IO ()
 updateItem sqliteUrl (Item itemId itemType itemTitle itemNote itemStart itemEnd itemAbandoned) =
@@ -91,9 +98,10 @@ instance FromJSON a => FromJSON (Item a)
 
 type TimelineAPI = "timeline" :> Get '[JSON] [Item Int]
               :<|> "timeline" :> ReqBody '[JSON] (Item (Maybe Int)) :> Post '[JSON] [Item Int]
+              :<|> "timeline" :> Capture "itemId" Int :> Delete '[JSON] [Item Int]
 
 server :: FilePath -> Server TimelineAPI
-server dbPath = listRequest :<|> putPostRequest
+server dbPath = listRequest :<|> putPostRequest :<|> deleteRequest
   where listRequest = do
           items <- liftIO (listItems dbPath)
           pure (unwrapDbItem <$> items)
@@ -101,6 +109,9 @@ server dbPath = listRequest :<|> putPostRequest
           liftIO $ case itemId item of
             Nothing -> insertItem dbPath item
             Just i -> updateItem dbPath (const i <$> item)
+          listRequest
+        deleteRequest itemId = do
+          liftIO (deleteItem dbPath itemId)
           listRequest
 
 timelineAPI :: Proxy TimelineAPI

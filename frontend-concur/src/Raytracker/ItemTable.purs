@@ -9,14 +9,18 @@ import Concur.React.Props as P
 import Data.Maybe (maybe)
 import Raytracker.Item (Item)
 
-data ItemTableAction = Item
+data ItemTableAction = ItemTableActionEdit Item | ItemTableActionDelete Item
 
-itemTable :: Array Item -> Widget HTML Item
+itemTable :: Array Item -> Widget HTML ItemTableAction
 itemTable items =
   let
     headers = [ "Actions", "ID", "Type", "Title", "Note", "Start", "End", "Abandoned" ]
     makeRow item = D.tr'
-      [ D.td' [ D.a [ const item <$> P.onClick, P.href "/#" ] [ D.text "Edit" ] ]
+      [ D.td' [
+             D.a [ const (ItemTableActionEdit item) <$> P.onClick, P.href "/#" ] [ D.text "Edit" ]
+           , D.text " "
+           , D.a [ const (ItemTableActionDelete item) <$> P.onClick, P.href "/#" ] [ D.text "Delete" ]
+           ]
       , D.td' [ D.text (maybe "" show item.itemId) ]
       , D.td' [ D.text (show item.itemType) ]
       , D.td' [ D.text item.itemTitle ]

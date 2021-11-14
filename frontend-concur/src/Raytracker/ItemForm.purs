@@ -14,6 +14,7 @@ import Data.Maybe (fromMaybe, maybe)
 import Data.Semigroup ((<>))
 import Data.Show (show)
 import Data.String.Read (read)
+import Debug (spy, spyWith)
 import Prelude (bind)
 import Raytracker.Item (Item)
 import Raytracker.ItemType (allItemTypes)
@@ -78,7 +79,7 @@ itemFormInner i = D.h1' [ D.text (maybe "Add" (const ("Edit " <> i.itemTitle)) i
           , P._type "date"
           , P.className "form-control"
           , P.value (maybe "" show i.itemEnd)
-          , (\x -> ItemFormActionChange (\oi -> oi { itemEnd = read x })) <<< unsafeTargetValue <$> P.onChange
+          , (\x -> ItemFormActionChange (\oi -> oi { itemEnd = spyWith "itemEnd" show (read x) })) <<< unsafeTargetValue <$> P.onChange
           ]
       , D.label [ P.htmlFor "form-end" ] [ D.text "End" ]
       ]
