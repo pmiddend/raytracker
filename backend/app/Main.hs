@@ -16,7 +16,7 @@ import Control.Monad(when, void)
 import Control.Exception(bracket)
 import Data.Text(pack)
 
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, Day)
 import Servant
 import Data.Aeson(FromJSON, ToJSON)
 import GHC.Generics(Generic)
@@ -81,8 +81,8 @@ data Item a = Item {
   , itemType :: ItemType
   , itemTitle :: String
   , itemNote :: String
-  , itemStart :: UTCTime
-  , itemEnd :: Maybe UTCTime
+  , itemStart :: Day
+  , itemEnd :: Maybe Day
   , itemAbandoned :: Bool
   } deriving (Eq, Show, Generic, Functor)
 
