@@ -1,0 +1,31 @@
+* Raytracker — visualize when things start and end
+
+This is a piece of software where you can visualize when things in your life start and end (or get abandoned). Currently supported categories are:
+
+- Books
+- People (e.g. friendships, acquaintances, romances)
+- TV Shows
+- Video Games
+- Other
+
+You can add:
+
+- A title for the item
+- Notes
+- Start date
+- End date
+- If the item was completed or abandoned (think of a book that was too boring to continue reading)
+
+Screenshot from the main GUI:
+
+[[./docs/screenshot-v1.png]]
+
+** Technology
+
+- Frontend and backend are built by the [[https://nixos.org/][Nix package manager]]
+- The backend is built upon the [[https://www.haskell.org/][Haskell]] programming language and uses the [[https://docs.servant.dev/en/stable/][Servant library]] to host the HTTP server. It uses [[https://hackage.haskell.org/package/sqlite-simple][sqlite-simple]] to manage SQLite DB access.
+- The frontend is written in [[https://www.purescript.org/][Purescript]], using the [[https://github.com/purescript-concur/purescript-concur-react][Concur]] UI framework
+
+** Build instructions
+
+To be written.
