@@ -16,6 +16,7 @@ pkgs.mkShell {
     easy-ps.purs-0_14_5
     easy-ps.spago
     easy-ps.purs-tidy
+    easy-ps.spago2nix
     easy-ps.purescript-language-server
   ];
 }

@@ -8,11 +8,10 @@
   "scripts": {
     "dev": "spago build && parcel serve index.html"
   },
-  "devDependencies": {
-    "parcel": "^2.0.1"
-  },
+  "devDependencies": {},
   "dependencies": {
     "@parcel/transformer-react-refresh-wrap": "^2.0.1",
+    "parcel": "^2.0.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "xhr2": "^0.2.1"
