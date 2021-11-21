@@ -2,6 +2,8 @@
 
 ** Nixifying the frontend
 
+*** Using =node2nix=
+
 Now that the server can be reproducibly built using just =nix-build=, let’s check what we can do for the client. Right now, we only have a =shell.nix= in the =frontend-concur= directory. When we activate the shell via =nix-shell=, what we get right now is:
 
 - the =yarn= package manager
@@ -13,7 +15,7 @@ Notice that we don’t get any npm packages via Nix (except the ones mentioned).
 
 We would like to create a Nix derivation that:
 
-- calls =yarn run prod= to build our HTML, JS and CSS files
+- calls =spago build && parcel build index.html= to build our HTML, JS and CSS files
 - and puts those files into the Nix store, so we can later serve this on NixOS using nginx, for example
 
 However, the Nix build phase doesn’t allow network access, and we would need to pull some npm dependencies in order to build the program. How do we do that? Let’s take a look at [[https://github.com/svanderburg/node2nix][node2nix]] and try it out.
@@ -41,26 +43,27 @@ The output is a bit too long to include here, but it’s good that the tool warn
 The README tells us that we can use the generated files in order to bundle applications that need npm packages, which is exactly what we want to do! So, we write a little file, let’s call it =build-frontend.nix= for now, containing this:
 
 #+begin_src nix
-let
-  nixpkgs = import (builtins.fetchTarball {
-    name = "nixos-unstable-2021-11-20";
-    url = "https://github.com/nixos/nixpkgs/archive/a03719be2e676041847e1b59dafa8ab668fa2d2a.tar.gz";
-    sha256 = "1xvcc89m80cpslv84qhbbcyvcjqxhip5drx1arxvaajqv9059nqk";
-  }) {};
-  nodeDependencies = (nixpkgs.callPackage ./default.nix {}).shell.nodeDependencies;
-in
+  let
+    nixpkgs = import (builtins.fetchTarball {
+      name = "nixos-unstable-2021-11-20";
+      url = "https://github.com/nixos/nixpkgs/archive/a03719be2e676041847e1b59dafa8ab668fa2d2a.tar.gz";
+      sha256 = "1xvcc89m80cpslv84qhbbcyvcjqxhip5drx1arxvaajqv9059nqk";
+    }) {};
+    nodeDependencies = (nixpkgs.callPackage ./default.nix {}).shell.nodeDependencies;
+  in
 
-nixpkgs.stdenv.mkDerivation {
-  name = "raytracker-frontend-concur";
-  src = ./.;
-  buildInputs = [ nixpkgs.yarn ];
-  buildPhase = ''
-    ln -s ${nodeDependencies}/lib/node_modules ./node_modules
-    export PATH="${nodeDependencies}/bin:$PATH"
+  nixpkgs.stdenv.mkDerivation {
+    name = "raytracker-frontend-concur";
+    src = ./.;
+    buildInputs = [ nixpkgs.yarn ];
+    buildPhase = ''
+      ln -s ${nodeDependencies}/lib/node_modules ./node_modules
+      export PATH="${nodeDependencies}/bin:$PATH"
 
-    yarn run prod
-  '';
-}
+      spago build
+      yarn run parcel build index.html
+    '';
+  }
 #+end_src
 
 The important bit is:
@@ -113,7 +116,7 @@ npm ERR!
 npm ERR! Failed at the @parcel/watcher@2.0.2 install script.
 #+end_example
 
-At least we got rid of that lmdb-store message, right? I’m very wary of this =bad interpreter= message. This usually means we’re using a binary of some sort instead of a Nix package version or at least a Nix-patched binary.
+At least we got rid of that =lmdb-store= message, right? I’m very wary of this =bad interpreter= message. This usually means we’re using a binary of some sort instead of a Nix package version or at least a Nix-patched binary.
 
 Digging deeper into this, [[https://github.com/svanderburg/node2nix/issues/198][there is an issue]] open on the node2nix issue tracker where people have similar problems. It’s suggested to edit the =build-frontend.nix= file and specify the node dependencies as follows:
 
@@ -222,6 +225,8 @@ This is completely fine, since I didn’t specify =spago= in my =package.json=, 
 #+begin_example
 [error] Directory "/" is not accessible. Permissions {readable = True, writable = False, executable = False, searchable = True}
 #+end_example
+
+*** Plan B
 
 So we’re trying to build our application in /, which is not writeable. Hm. Okay, Plan B!
 
@@ -370,36 +375,63 @@ URL: https://github.com/purescript/package-sets/releases/download/psc-0.14.5-202
 
 which leads us to [[https://github.com/commercialhaskell/stack/issues/4509][this stack-related issue]] and to more frustration.
 
-Okay, going /back/ to the =node2nix=, maybe we can sort this mess out. Last time we looked at that, we had the spago, =/= not writeable problem, and we realized that we needed =spago2nix=, so let’s just use that. Coming from [[https://github.com/justinwoo/spago2nix/issues/48][the issue hat provided an actual working example]], we can devise this Nix expression:
+*** Using =node2nix= — again
+
+Okay, going /back/ to the =node2nix=, maybe we can sort this mess out. Last time we looked at that, we had the spago, =/= not writeable problem, and installing =spago= didn’t really solve any of this. /But/ there is a piece of software called [[https://github.com/justinwoo/spago2nix][spago2nix]]! So let’s just use that, since it claims to combine spago and Nix. Coming from [[https://github.com/justinwoo/spago2nix/issues/48][the issue hat provided an actual (!) working example]] instead of the broken one in the README (sigh), we can devise this Nix expression:
 
 #+begin_src nix
-  nixpkgs.stdenv.mkDerivation {
-    name = "raytracker-frontend-concur";
-    src = ./.;
-    buildInputs = [
-      nixpkgs.yarn
-      easy-ps.purs-0_14_5
-      easy-ps.spago
-      # spago2nix!
-      spagoPkgs.installSpagoStyle
-      spagoPkgs.buildSpagoStyle
-      spagoPkgs.buildFromNixStore
-    ];
-    buildPhase = ''
-      install-spago-style
-      build-spago-style src/*purs src/Raytracker/*purs
+let
+  nixpkgs = import (builtins.fetchTarball {
+    name = "nixos-unstable-2021-11-20";
+    url = "https://github.com/nixos/nixpkgs/archive/a03719be2e676041847e1b59dafa8ab668fa2d2a.tar.gz";
+    sha256 = "1xvcc89m80cpslv84qhbbcyvcjqxhip5drx1arxvaajqv9059nqk";
+  }) {};
+  nodeDependencies = (nixpkgs.callPackage ({ pkgs, system }:
+    let nodePackages = import ./default.nix { inherit pkgs system; };
+    in nodePackages // {
+      shell = nodePackages.shell.override {
+        buildInputs = [ pkgs.nodePackages.node-gyp-build ];
+      };
+    }
+  ) {}).shell.nodeDependencies;
+  easy-ps = import
+    (nixpkgs.fetchFromGitHub {
+      owner = "justinwoo";
+      repo = "easy-purescript-nix";
+      rev = "7802db65618c2ead3a55121355816b4c41d276d9";
+      sha256 = "0n99hxxcp9yc8yvx7bx4ac6askinfark7dnps3hzz5v9skrvq15q";
+    }) {
+    pkgs = nixpkgs;
+    };
+  spagoPkgs = import ./spago-packages.nix { pkgs = nixpkgs; };
+in
 
-      ln -s ${nodeDependencies}/lib/node_modules ./node_modules
-      export PATH="${nodeDependencies}/bin:$PATH"
+nixpkgs.stdenv.mkDerivation {
+  name = "raytracker-frontend-concur";
+  src = ./.;
+  buildInputs = [
+    nixpkgs.yarn
+    easy-ps.purs-0_14_5
+    easy-ps.spago
+    spagoPkgs.installSpagoStyle
+    spagoPkgs.buildSpagoStyle
+    spagoPkgs.buildFromNixStore
+  ];
+  buildPhase = ''
+    install-spago-style
+    build-spago-style src/*purs src/Raytracker/*purs
 
-      ./node_modules/.bin/parcel --version
-      yarn run --offline parcel build index.html
-    '';
-    installPhase = ''
-      mkdir -p $out
-      cp dist/* $out/
-    '';
-  }
+    ln -s ${nodeDependencies}/lib/node_modules ./node_modules
+    export PATH="${nodeDependencies}/bin:$PATH"
+
+    ./node_modules/.bin/parcel --version
+    yarn run --offline parcel build index.html
+  '';
+  installPhase = ''
+    mkdir -p $out
+    cp dist/* $out/
+  '';
+}
 #+end_src
 
-This code…actually works! And is an amalgamation of all we talked about: =node2nix=, the patched version of it, =spago2nix=…amazing!
+And this code now…actually works! And is an amalgamation of all we talked about: =node2nix=, the patched version of it that we used because of =node-gyp-install=, and finally =spago2nix=…amazing! Closure! Katharsis!
